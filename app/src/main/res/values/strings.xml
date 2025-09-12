@@ -127,4 +127,5 @@
     <string name="license">License</string>
     <string name="clipboard_history_title">Clipboard history</string>
     <string name="clipboard_history_empty">Clipboard is empty</string>
+    <string name="clipboard_back">Back</string>
 </resources>

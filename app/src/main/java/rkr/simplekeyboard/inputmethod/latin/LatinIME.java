@@ -96,6 +96,7 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
     // TODO: Move these {@link View}s to {@link KeyboardSwitcher}.
     private View mInputView;
     private InsetsUpdater mInsetsUpdater;
+    private View mPanelContainer;
 
     private RichInputMethodManager mRichImm;
     final KeyboardSwitcher mKeyboardSwitcher;
@@ -341,6 +342,7 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
         super.setInputView(view);
         mInputView = view;
         mInsetsUpdater = ViewOutlineProviderCompatUtils.setInsetsOutlineProvider(view);
+        mPanelContainer = view.findViewById(rkr.simplekeyboard.inputmethod.R.id.panel_container);
         updateSoftInputWindowLayoutParameters();
     }
 
@@ -493,6 +495,7 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
         if (mainKeyboardView != null) {
             mainKeyboardView.closing();
         }
+        hideCustomPanel();
     }
 
     void onFinishInputInternal() {
@@ -924,6 +927,61 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
     }
 
     public void showClipboardHistoryPicker() {
+        final List<String> history = mClipboardHistoryManager != null
+                ? mClipboardHistoryManager.getHistory() : null;
+        try {
+            showClipboardPanel(history);
+        } catch (final Exception e) {
+            Log.e(TAG, "Failed to show clipboard panel, falling back to dialog", e);
+            showClipboardDialogFallback(history);
+        }
+    }
+
+    private void showClipboardPanel(final List<String> history) {
+        if (mPanelContainer == null) return;
+        hideCustomPanel();
+        final Context ctx = mPanelContainer.getContext();
+        final android.view.LayoutInflater inflater = android.view.LayoutInflater.from(ctx);
+        final android.view.View container = inflater.inflate(rkr.simplekeyboard.inputmethod.R.layout.panel_clipboard, null);
+
+        final android.widget.TextView back = container.findViewById(rkr.simplekeyboard.inputmethod.R.id.btn_back);
+        back.setOnClickListener(v -> hideCustomPanel());
+
+        final android.widget.GridView grid = container.findViewById(rkr.simplekeyboard.inputmethod.R.id.grid_clipboard);
+        final java.util.ArrayList<String> items = new java.util.ArrayList<>();
+        if (history != null) items.addAll(history);
+        if (items.isEmpty()) {
+            items.add(getString(R.string.clipboard_history_empty));
+        }
+        final android.widget.ArrayAdapter<String> adapter = new android.widget.ArrayAdapter<>(
+                ctx, android.R.layout.simple_list_item_1, items);
+        grid.setAdapter(adapter);
+        grid.setOnItemClickListener((parent, view1, position, id) -> {
+            final String selected = items.get(position);
+            if (!TextUtils.isEmpty(selected) && !selected.equals(getString(R.string.clipboard_history_empty))) {
+                mInputLogic.mConnection.commitText(selected, 1);
+                hideCustomPanel();
+            }
+        });
+
+        if (mPanelContainer instanceof android.widget.FrameLayout) {
+            ((android.widget.FrameLayout) mPanelContainer).addView(container);
+        }
+        mPanelContainer.setVisibility(View.VISIBLE);
+        final MainKeyboardView keyboardView = mKeyboardSwitcher.getMainKeyboardView();
+        if (keyboardView != null) {
+            // Try to clone keyboard background for panel to keep visual consistency
+            final android.graphics.drawable.Drawable bg = keyboardView.getBackground();
+            if (bg != null && bg.getConstantState() != null) {
+                try {
+                    mPanelContainer.setBackground(bg.getConstantState().newDrawable().mutate());
+                } catch (Exception ignored) {}
+            }
+            keyboardView.setVisibility(View.GONE);
+        }
+    }
+
+    private void showClipboardDialogFallback(final List<String> history) {
         if (isShowingOptionDialog()) {
             return;
         }
@@ -935,8 +993,6 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
         if (windowToken == null) {
             return;
         }
-        final List<String> history = mClipboardHistoryManager != null
-                ? mClipboardHistoryManager.getHistory() : null;
         if (history == null || history.isEmpty()) {
             final AlertDialog.Builder builder = new AlertDialog.Builder(
                     DialogUtils.getPlatformDialogThemeContext(this));
@@ -983,6 +1039,15 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
         window.addFlags(WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM);
         dialog.show();
         mOptionsDialog = dialog;
+    }
+
+    private void hideCustomPanel() {
+        if (mPanelContainer instanceof android.widget.FrameLayout) {
+            ((android.widget.FrameLayout) mPanelContainer).removeAllViews();
+        }
+        if (mPanelContainer != null) mPanelContainer.setVisibility(View.GONE);
+        final MainKeyboardView keyboardView = mKeyboardSwitcher.getMainKeyboardView();
+        if (keyboardView != null) keyboardView.setVisibility(View.VISIBLE);
     }
 
     @Override

@@ -32,4 +32,11 @@
         android:layoutDirection="ltr"
         android:layout_width="match_parent"
         android:layout_height="wrap_content" />
+
+    <!-- Container for custom in-IME panels (e.g., clipboard history, emoji). Hidden by default. -->
+    <FrameLayout
+        android:id="@+id/panel_container"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:visibility="gone" />
 </LinearLayout>
