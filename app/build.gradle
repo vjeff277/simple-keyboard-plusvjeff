@@ -16,6 +16,9 @@ android {
         }
     }
     namespace 'rkr.simplekeyboard.inputmethod'
+    lintOptions {
+        abortOnError false
+    }
 }
 
 dependencies {

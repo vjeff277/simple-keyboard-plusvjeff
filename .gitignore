@@ -43,3 +43,5 @@ captures/
 *.jks
 
 .idea
+
+.cursor
