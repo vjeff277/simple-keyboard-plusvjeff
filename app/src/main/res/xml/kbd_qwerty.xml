@@ -23,8 +23,9 @@
         <Keyboard
             latin:verticalGap="@fraction/config_key_vertical_gap_5row"
             latin:bonusHeight="@fraction/config_key_bonus_height_5row"
-            latin:rowHeight="20%p">
+            latin:rowHeight="16.66%p">
             <include latin:keyboardLayout="@xml/key_styles_common" />
+            <include latin:keyboardLayout="@xml/row_options" />
             <include latin:keyboardLayout="@xml/row_qwerty0" />
             <include latin:keyboardLayout="@xml/rows_qwerty" />
         </Keyboard>

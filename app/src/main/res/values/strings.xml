@@ -125,4 +125,6 @@
     <string name="change_keyboard">Change keyboard</string>
     <string name="privacy_policy">Privacy Policy</string>
     <string name="license">License</string>
+    <string name="clipboard_history_title">Clipboard history</string>
+    <string name="clipboard_history_empty">Clipboard is empty</string>
 </resources>

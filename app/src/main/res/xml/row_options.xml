@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Options row above the number row: settings and clipboard history -->
+<merge xmlns:latin="http://schemas.android.com/apk/res-auto">
+    <Row>
+        <Key
+            latin:keyStyle="settingsKeyStyle"
+            latin:keyWidth="14%p" />
+        <Key
+            latin:keyXPos="86%p"
+            latin:keyWidth="14%p"
+            latin:keyLabelFlags="hasPopupHint"
+            latin:backgroundType="functional"
+            latin:keySpec="📋|!code/key_clipboard_history" />
+    </Row>
+</merge>
+
+

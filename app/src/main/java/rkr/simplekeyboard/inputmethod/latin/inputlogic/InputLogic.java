@@ -209,6 +209,9 @@ public final class InputLogic {
                 sendDownUpKeyEvent(KeyEvent.KEYCODE_ENTER, KeyEvent.META_SHIFT_ON);
                 // Shift + Enter is not supported in all devices
                 break;
+            case Constants.CODE_CLIPBOARD_HISTORY:
+                onClipboardHistoryKeyPressed();
+                break;
             default:
                 throw new RuntimeException("Unknown key code : " + event.mKeyCode);
         }
@@ -476,6 +479,14 @@ public final class InputLogic {
      */
     private void onSettingsKeyPressed() {
         mLatinIME.launchSettings();
+    }
+
+    /**
+     * Handle a press on the clipboard history key.
+     * Show clipboard history picker and paste the selected item.
+     */
+    private void onClipboardHistoryKeyPressed() {
+        mLatinIME.showClipboardHistoryPicker();
     }
 
     /**

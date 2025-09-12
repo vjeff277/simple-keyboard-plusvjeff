@@ -20,7 +20,10 @@ import android.app.AlertDialog;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.IntentFilter;
+import android.content.DialogInterface;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.inputmethodservice.InputMethodService;
@@ -40,10 +43,12 @@ import android.view.View;
 import android.view.ViewGroup.LayoutParams;
 import android.view.Window;
 import android.view.WindowInsetsController;
+import android.view.WindowManager;
 import android.view.inputmethod.EditorInfo;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
+import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
@@ -58,6 +63,7 @@ import rkr.simplekeyboard.inputmethod.keyboard.KeyboardActionListener;
 import rkr.simplekeyboard.inputmethod.keyboard.KeyboardId;
 import rkr.simplekeyboard.inputmethod.keyboard.KeyboardSwitcher;
 import rkr.simplekeyboard.inputmethod.keyboard.MainKeyboardView;
+import rkr.simplekeyboard.inputmethod.R;
 import rkr.simplekeyboard.inputmethod.latin.common.Constants;
 import rkr.simplekeyboard.inputmethod.latin.define.DebugFlags;
 import rkr.simplekeyboard.inputmethod.latin.inputlogic.InputLogic;
@@ -65,6 +71,7 @@ import rkr.simplekeyboard.inputmethod.latin.settings.Settings;
 import rkr.simplekeyboard.inputmethod.latin.settings.SettingsActivity;
 import rkr.simplekeyboard.inputmethod.latin.settings.SettingsValues;
 import rkr.simplekeyboard.inputmethod.latin.utils.ApplicationUtils;
+import rkr.simplekeyboard.inputmethod.latin.utils.DialogUtils;
 import rkr.simplekeyboard.inputmethod.latin.utils.LeakGuardHandlerWrapper;
 import rkr.simplekeyboard.inputmethod.latin.utils.ResourceUtils;
 import rkr.simplekeyboard.inputmethod.latin.utils.ViewLayoutUtils;
@@ -94,6 +101,7 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
     final KeyboardSwitcher mKeyboardSwitcher;
 
     private AlertDialog mOptionsDialog;
+    private ClipboardHistoryManager mClipboardHistoryManager;
 
     public final UIHandler mHandler = new UIHandler(this);
 
@@ -266,6 +274,10 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
         final IntentFilter filter = new IntentFilter();
         filter.addAction(AudioManager.RINGER_MODE_CHANGED_ACTION);
         registerReceiver(mRingerModeChangeReceiver, filter);
+
+        // Clipboard history
+        mClipboardHistoryManager = new ClipboardHistoryManager(this);
+        mClipboardHistoryManager.start();
     }
 
     private void loadSettings() {
@@ -281,6 +293,9 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
     public void onDestroy() {
         mSettings.onDestroy();
         unregisterReceiver(mRingerModeChangeReceiver);
+        if (mClipboardHistoryManager != null) {
+            mClipboardHistoryManager.stop();
+        }
         super.onDestroy();
     }
 
@@ -896,6 +911,78 @@ public class LatinIME extends InputMethodService implements KeyboardActionListen
                 | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED
                 | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         startActivity(intent);
+    }
+
+    public void pasteFromClipboard() {
+        final ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+        if (clipboard == null) return;
+        final ClipData clip = clipboard.getPrimaryClip();
+        if (clip == null || clip.getItemCount() == 0) return;
+        final CharSequence text = clip.getItemAt(0).coerceToText(this);
+        if (TextUtils.isEmpty(text)) return;
+        mInputLogic.mConnection.commitText(text, 1);
+    }
+
+    public void showClipboardHistoryPicker() {
+        if (isShowingOptionDialog()) {
+            return;
+        }
+        final MainKeyboardView mainKeyboardView = mKeyboardSwitcher.getMainKeyboardView();
+        if (mainKeyboardView == null) {
+            return;
+        }
+        final IBinder windowToken = mainKeyboardView.getWindowToken();
+        if (windowToken == null) {
+            return;
+        }
+        final List<String> history = mClipboardHistoryManager != null
+                ? mClipboardHistoryManager.getHistory() : null;
+        if (history == null || history.isEmpty()) {
+            final AlertDialog.Builder builder = new AlertDialog.Builder(
+                    DialogUtils.getPlatformDialogThemeContext(this));
+            builder.setTitle(R.string.clipboard_history_title)
+                    .setMessage(R.string.clipboard_history_empty)
+                    .setPositiveButton(android.R.string.ok, null);
+            final AlertDialog dialog = builder.create();
+            dialog.setCancelable(true);
+            dialog.setCanceledOnTouchOutside(true);
+            final Window window = dialog.getWindow();
+            final WindowManager.LayoutParams lp = window.getAttributes();
+            lp.token = windowToken;
+            lp.type = WindowManager.LayoutParams.TYPE_APPLICATION_ATTACHED_DIALOG;
+            window.setAttributes(lp);
+            window.addFlags(WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM);
+            dialog.show();
+            mOptionsDialog = dialog;
+            return;
+        }
+
+        final CharSequence[] items = history.toArray(new CharSequence[0]);
+        final AlertDialog.Builder builder = new AlertDialog.Builder(
+                DialogUtils.getPlatformDialogThemeContext(this));
+        builder.setTitle(R.string.clipboard_history_title)
+                .setItems(items, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(final DialogInterface dialog, final int which) {
+                        if (which >= 0 && which < items.length) {
+                            final CharSequence selected = items[which];
+                            if (!TextUtils.isEmpty(selected)) {
+                                mInputLogic.mConnection.commitText(selected, 1);
+                            }
+                        }
+                    }
+                });
+        final AlertDialog dialog = builder.create();
+        dialog.setCancelable(true);
+        dialog.setCanceledOnTouchOutside(true);
+        final Window window = dialog.getWindow();
+        final WindowManager.LayoutParams lp = window.getAttributes();
+        lp.token = windowToken;
+        lp.type = WindowManager.LayoutParams.TYPE_APPLICATION_ATTACHED_DIALOG;
+        window.setAttributes(lp);
+        window.addFlags(WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM);
+        dialog.show();
+        mOptionsDialog = dialog;
     }
 
     @Override
